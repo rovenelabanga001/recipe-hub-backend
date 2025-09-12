@@ -11,7 +11,7 @@ class Notification(Document):
 
     recipe = ReferenceField("Recipe", required = True)
 
-    comment = ReferenceField("Comment", required = True)
+    comment = ReferenceField("Comment", required = False)
 
     type = StringField(required = True, choices = ["favorite", "comment"])
     message = StringField(required = True)

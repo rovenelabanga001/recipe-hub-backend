@@ -8,5 +8,6 @@ pymongo = "*"
 dnspython = "*"   # Needed if using MongoDB Atlas
 mongoengine = "*"
 flask-bcrypt = "*"
+pillow = "*"
 
 [dev-packages]

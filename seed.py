@@ -6,21 +6,40 @@ from models.recipe import Recipe
 from models.comment import Comment
 from models.notification import Notification
 
-# Connect to DB
-connect(
-    db="recipehub",
-    host="mongodb://localhost:27017/recipehub"
-)
+# ----------------------
+# Connect to MongoDB
+# ----------------------
+connect(db="recipehub", host="mongodb://localhost:27017/recipehub")
 
 def seed():
-    # Clear existing collections (optional, helpful in dev)
+    # ----------------------
+    # Clear existing collections
+    # ----------------------
     User.drop_collection()
     Recipe.drop_collection()
     Comment.drop_collection()
     Notification.drop_collection()
+    print("🗑 Cleared existing collections...")
 
     # ----------------------
-    # Create Recipes first
+    # 1️⃣ Create Users
+    # ----------------------
+    user1 = User.create(
+        email="john@example.com",
+        username="john_doe",
+        password="password123"
+    )
+
+    user2 = User.create(
+        email="sara@example.com",
+        username="sara_smith",
+        password="password456"
+    )
+
+    print(f"✅ Created users: {user1.username}, {user2.username}")
+
+    # ----------------------
+    # 2️⃣ Create Recipes
     # ----------------------
     recipe1 = Recipe(
         name="Classic Beef Steak",
@@ -38,7 +57,7 @@ def seed():
         ],
         tags=["main course", "grilled", "beef"],
         category=["Lunch", "Dinner"],
-        userId=None  # will update later
+        user=user1
     ).save()
 
     recipe2 = Recipe(
@@ -57,73 +76,64 @@ def seed():
         ],
         tags=["breakfast", "sweet", "vegetarian"],
         category=["Breakfast"],
-        userId=None
+        user=user2
     ).save()
 
-    # ----------------------
-    # Create Users with favoriteRecipeIds pointing to existing recipes
-    # ----------------------
-    user1 = User.create(
-        email="john@example.com",
-        username="john_doe",
-        password="password123",
-        favoriteRecipeIds=[recipe2.id]  # John likes Banana Pancakes
-    )
-
-    user2 = User.create(
-        email="sara@example.com",
-        username="sara_smith",
-        password="password456",
-        favoriteRecipeIds=[recipe1.id]  # Sara likes Beef Steak
-    )
-
-    # Now that users exist, update recipes with their owners
-    recipe1.userId = user1.id
-    recipe1.save()
-    recipe2.userId = user2.id
-    recipe2.save()
+    print(f"✅ Created recipes: {recipe1.title}, {recipe2.title}")
 
     # ----------------------
-    # Create Comments
+    # 3️⃣ Update users’ favoriteRecipeIds
+    # ----------------------
+    user1.favoriteRecipeIds = [recipe2.id]  # John likes Banana Pancakes
+    user1.save()
+    user2.favoriteRecipeIds = [recipe1.id]  # Sara likes Beef Steak
+    user2.save()
+    print("⭐ Updated users' favorite recipes")
+
+    # ----------------------
+    # 4️⃣ Create Comments
     # ----------------------
     comment1 = Comment(
-        username=user2.username,
-        recipeId=recipe1.id,
+        user=user2,  # reference user object
+        recipe=recipe1,
         body="Loved the flavors, but I added a bit more spice to suit my taste.",
         time=datetime.datetime(2025, 8, 22, 7, 45)
     ).save()
 
     comment2 = Comment(
-        username=user1.username,
-        recipeId=recipe2.id,
+        user=user1,
+        recipe=recipe2,
         body="These pancakes were fluffy and delicious!",
         time=datetime.datetime(2025, 9, 1, 10, 30)
     ).save()
 
+    print("💬 Created comments")
+
     # ----------------------
-    # Create Notifications
+    # 5️⃣ Create Notifications
     # ----------------------
     Notification(
-        userId=user1.id,
+        user=user1,
         type="favorite",
-        user=user2.username,
+        actor=user2,
         message=f"{user2.username} liked your recipe \"{recipe2.name}\"",
-        recipeId=recipe2.id,
+        recipe=recipe2,
         createdAt=datetime.datetime.utcnow(),
         read=False
     ).save()
 
     Notification(
-        userId=user2.id,
+        user=user2,
         type="comment",
-        user=user1.username,
+        actor=user1,
         message=f"{user1.username} commented on your recipe \"{recipe2.name}\"",
-        recipeId=recipe2.id,
+        recipe=recipe2,
         createdAt=datetime.datetime.utcnow(),
         read=False,
-        commentId=comment2.id
+        comment=comment2
     ).save()
 
+    print("🔔 Created notifications")
     print("✅ Database seeded successfully!")
 
 if __name__ == "__main__":

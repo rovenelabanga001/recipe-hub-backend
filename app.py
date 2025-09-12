@@ -9,7 +9,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config("SECRET_KEY") = os.getenv("SECRET_KEY")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
 connect(
     db="recipehub",
@@ -21,4 +21,4 @@ def home():
     return {"message": "Recipehub backend is running"}
 
 if __name__ == "__main__":
-    app.run(debug = True)
+    app.run(debug = True, port = 5500)

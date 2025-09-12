@@ -19,7 +19,7 @@ class Recipe(Document):
 
     def to_dict(self):
         return{
-            "id": str(self.id)
+            "id": str(self.id),
             "name": self.name,
             "image": str(self.image.grid_id) if self.image else None,
             "title": self.title,
