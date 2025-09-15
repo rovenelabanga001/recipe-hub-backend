@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from mongoengine import connect
 from dotenv import load_dotenv
+from apis.users import users_bp
 import os
 
 load_dotenv()
@@ -10,6 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+app.register_blueprint(users_bp)
 
 connect(
     db="recipehub",
