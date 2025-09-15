@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from models.user import User
+from utils.jwt_utils import token_required
 import bcrypt
 import jwt
 import datetime
@@ -60,30 +61,40 @@ def signin():
     return  jsonify({"token": token, "user": user.to_dict()}), 200
 
 
+#__________
+#Get a user by ID
+#__________
+
+@users_bp.route("/users/<user_id>", methods=["GET"])
+@token_required
+def get_user_by_id(user_id):
+    user = User.objects(id=user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(user.to_dict()), 200
+
+#__________
+#Get a recipes by user ID
+#__________
+
+@users_bp.route("/users/<user_id>/recipes")
+def get_user_recipes(user_id):
+    user = User.objects(id = user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    recipes = Recipe.objects(user_id=user.id)
+    if not recipes:
+        return jsonify({"message": "This user has no recipes yet"}), 200
+
+    return jsonify([recipe.to_dict for recipe in recipes])
 #___________
 #Get all users (protected)
 #___________
 
 @users_bp.route("/users", methods=["GET"])
-def get_users():
-    token = request.headers.get("Authorization")
-    if not token:
-        return jsonify({"error": "Missing token"}), 401
-
-    try:
-        decoded = jwt.decode(
-            token.split("Bearer ")[-1],
-            current_app.config["SECRET_KEY"],
-            algorithm="HS256"
-        )
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token expired"}), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid Token"}), 401
-
+@token_required
+def get_all_users():
     users = User.objects()
-    return jsonify([u.to_dict() for u in users]), 200
-
-    
+    return jsonify([user.to_dict() for user in users])
+ 
