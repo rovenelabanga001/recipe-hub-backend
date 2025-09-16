@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from models.user import User
+from models.blacklist import BlackList
 from utils.jwt_utils import token_required
 import bcrypt
 import jwt
@@ -60,7 +61,21 @@ def signin():
 
     return  jsonify({"token": token, "user": user.to_dict()}), 200
 
+#____________
+#Signout
+#____________
+@users_bp.route("/signout", methods = ["POST"])
+@token_required
+def signout():
+    token = getattr(request, "token", None)
 
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
+
+    if not BlackList.objects(token=token).first():
+        BlackList(token=token).save()
+
+    return jsonify({"message": "Successfully signed out"}), 200
 #__________
 #Get a user by ID
 #__________
