@@ -1,9 +1,9 @@
-from mongoengine import Document, StringField, ReferenceField, DateTimeField
+from mongoengine import Document, StringField, ReferenceField, DateTimeField, CASCADE
 import datetime
 
 class Comment(Document):
     user = ReferenceField("User", required = True)
-    recipe = ReferenceField("Recipe", required = True)
+    recipe = ReferenceField("Recipe", required = True, reverse_delete_rule=CASCADE)
     body = StringField(required = True)
     time = DateTimeField(default=datetime.datetime.utcnow)
 

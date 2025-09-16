@@ -1,4 +1,4 @@
-from mongoengine import Document, StringField, EmailField, ListField, ReferenceField
+from mongoengine import Document, StringField, EmailField, ListField, ReferenceField, PULL
 from flask_bcrypt import generate_password_hash, check_password_hash
 from .recipe import Recipe  # import the Recipe model for reference
 
@@ -9,7 +9,7 @@ class User(Document):
     password_hash = StringField(required=True)
 
     # Favorite recipes must be valid Recipe references
-    favoriteRecipeIds = ListField(ReferenceField(Recipe))
+    favoriteRecipeIds = ListField(ReferenceField(Recipe, reverse_delete_rule=PULL))
 
     @classmethod
     def create(cls, email, username, password, favoriteRecipeIds=None):

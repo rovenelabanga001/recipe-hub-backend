@@ -15,10 +15,6 @@ def token_required(f):
         if not token:
             return jsonify({"error": "Missing token!"}), 401
 
-        # Check if token is blacklisted
-        if BlackList.objects(token=token).first():
-            return jsonify({"error": "Token has been blacklisted, please signin again"}), 401
-
         try:
             decoded = jwt.decode(
                 token,
@@ -26,13 +22,21 @@ def token_required(f):
                 algorithms=["HS256"]
             )
 
-            # ✅ Attach decoded user_id and token to request object
+            jti = decoded.get("jti")
+            if not jti:
+                return jsonify({"error": "Invalid token structure"}), 401
+
+            # ✅ Check if token jti is blacklisted
+            if BlackList.objects(jti=jti).first():
+                return jsonify({"error": "Token has been blacklisted, please signin again"}), 401
+
+            # attach decoded info
             request.user_id = decoded["user_id"]
             request.token = token
+            request.jti = jti
 
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token has expired!"}), 401
-
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token!"}), 401
 

@@ -3,11 +3,11 @@ import datetime
 from mongoengine import Document, StringField, DateTimeField
 
 class BlackList(Document):
-    token = StringField(required=True, unique=True)
+    jti = StringField(required=True, unique=True, sparse = True)
     blacklisted_on = DateTimeField(default=datetime.datetime.utcnow)
 
     def to_dict(self):
         return {
-            "token": self.token,
+            "jti": self.jti,
             "blacklisted_on": self.blacklisted_on.isoformat()
         }

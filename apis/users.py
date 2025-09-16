@@ -5,6 +5,7 @@ from utils.jwt_utils import token_required
 import bcrypt
 import jwt
 import datetime
+import uuid
 
 users_bp = Blueprint("users", __name__)
 
@@ -19,7 +20,16 @@ def signup():
     password = data.get("password")
 
     if not email or not username or not password:
-        return jsonify({"error": "Missing required fields"}), 400
+        missing_fields = []
+        if not email:
+            missing_fields.append("email")
+        if not username:
+            missing_fields.append("username")
+        if not password:
+            missing_fields.append("password")
+    
+        return jsonify({"error": f"Missing required field(s): {', '.join(missing_fields)}"}), 400
+
 
     if User.objects(email=email).first():
         return jsonify({"error": "Email already exists"}), 400
@@ -51,31 +61,34 @@ def signin():
     if not bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
         return jsonify({"error": "Invalid email or password"}), 401
 
+    jti = str(uuid.uuid4())  
+
     token = jwt.encode({
         "user_id": str(user.id),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours = 2)
-    },
-    current_app.config["SECRET_KEY"],
-    algorithm = "HS256"
-    )
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2),
+        "iat": datetime.datetime.utcnow(),
+        "jti": jti
+    }, current_app.config["SECRET_KEY"], algorithm="HS256")
 
     return  jsonify({"token": token, "user": user.to_dict()}), 200
 
 #____________
 #Signout
 #____________
-@users_bp.route("/signout", methods = ["POST"])
+@users_bp.route("/signout", methods=["POST"])
 @token_required
 def signout():
-    token = getattr(request, "token", None)
+    jti = getattr(request, "jti", None)
 
-    if not token:
-        return jsonify({"error": "Missing token"}), 401
+    if not jti:
+        return jsonify({"error": "Missing token identifier (jti)"}), 401
 
-    if not BlackList.objects(token=token).first():
-        BlackList(token=token).save()
+    # If not already blacklisted, save it
+    if not BlackList.objects(jti=jti).first():
+        BlackList(jti=jti).save()
 
     return jsonify({"message": "Successfully signed out"}), 200
+
 #__________
 #Get a user by ID
 #__________

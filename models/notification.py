@@ -1,5 +1,5 @@
 from mongoengine import (
-    Document, StringField, ReferenceField, DateTimeField, BooleanField
+    Document, StringField, ReferenceField, DateTimeField, BooleanField, CASCADE
 )
 
 import datetime
@@ -9,9 +9,9 @@ class Notification(Document):
 
     actor = ReferenceField("User", required = True)
 
-    recipe = ReferenceField("Recipe", required = True)
+    recipe = ReferenceField("Recipe", required = True, reverse_delete_rule=CASCADE)
 
-    comment = ReferenceField("Comment", required = False)
+    comment = ReferenceField("Comment", required = False, reverse_delete_rule=CASCADE)
 
     type = StringField(required = True, choices = ["favorite", "comment"])
     message = StringField(required = True)
