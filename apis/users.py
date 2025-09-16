@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from models.user import User
 from models.blacklist import BlackList
+from models.recipe import Recipe
 from utils.jwt_utils import token_required
 import bcrypt
 import jwt
@@ -93,7 +94,7 @@ def signout():
 #Get a user by ID
 #__________
 
-@users_bp.route("/users/<user_id>", methods=["GET"])
+@users_bp.route("/users/id/<user_id>", methods=["GET"])
 @token_required
 def get_user_by_id(user_id):
     user = User.objects(id=user_id).first()
@@ -102,7 +103,7 @@ def get_user_by_id(user_id):
     return jsonify(user.to_dict()), 200
 
 #__________
-#Get a recipes by user ID
+#Get recipes by user ID
 #__________
 
 @users_bp.route("/users/<user_id>/recipes")
@@ -116,6 +117,69 @@ def get_user_recipes(user_id):
         return jsonify({"message": "This user has no recipes yet"}), 200
 
     return jsonify([recipe.to_dict for recipe in recipes])
+
+#___________
+#Get top users
+#___________
+@users_bp.route("/top-users", methods=["GET"])
+@token_required
+def get_top_users():
+    try:
+        # Aggregate recipes grouped by user_id
+        pipeline = [
+            {"$group": {"_id": "$user", "recipe_count": {"$sum": 1}}},
+            {"$sort": {"recipe_count": -1}},
+            {"$limit": 2}
+        ]
+
+        results = Recipe.objects.aggregate(*pipeline)
+
+        top_users = []
+        for result in results:
+            user = User.objects(id=result["_id"]).first()
+            if user:
+                top_users.append({
+                    "user": user.to_dict(),
+                    "recipe_count": result["recipe_count"]
+                })
+
+        return jsonify({
+            "message": "Top 2 users with the highest number of recipes",
+            "data": top_users
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to fetch top users",
+            "details": str(e)
+        }), 500
+
+#___________
+#Get user by username
+#___________
+
+@users_bp.route("/users/username/<string:username>", methods=["GET"])
+@token_required
+def get_user_by_username(username):
+    try:
+        print("Looking for username:", username)
+
+        user = User.objects(username=username).first()
+        if not user:
+            return jsonify({
+                "message": f"User with username not found"
+            }), 404
+
+        return jsonify({
+            "message": f"User '{username}' found",
+            "data": user.to_dict()
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to fetch user",
+            "details": str(e)
+        }), 500
 #___________
 #Get all users (protected)
 #___________

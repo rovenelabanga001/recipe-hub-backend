@@ -13,4 +13,4 @@ def require_token():
     # This ensures token_required runs before every request to this blueprint
     pass
 
-crud_factory(comments_bp, Comment, "comments",["username", "body", "time"], user_owned = True )
+crud_factory(comments_bp, Comment, "comments",[ "body", "recipe"], user_owned = True )

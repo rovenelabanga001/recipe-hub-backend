@@ -13,4 +13,47 @@ def require_token():
     # This ensures token_required runs before every request to this blueprint
     pass
 
-crud_factory(recipes_bp, Recipe, "recipes", ["name", "ingredients"], user_owned=True)
+crud_factory(
+    recipes_bp, 
+    Recipe, 
+    "recipes", 
+    [
+        "name", 
+        "title", 
+        "prepTime", 
+        "cookTime", 
+        "servings", 
+        "ingredients", 
+        "directions", 
+        "tags", 
+        "category"
+    ], 
+    user_owned=True
+)
+
+@recipes_bp.route("/recipes/quick-meals/<int:max_cook_time>", methods=["GET"])
+def get_quick_recipes(max_cook_time):
+    if max_cook_time <= 0:
+        return jsonify({"error": "Max cook time must be greater than 0"}), 400
+
+    try:
+        recipes = Recipe.objects(cookTime__lte=max_cook_time).order_by('cookTime')
+
+        if not recipes:
+            return jsonify({
+                "message": f"No recipes found with cook time less than {max_cook_time} minutes",
+                "data": [],
+                "max_cook_time":max_cook_time
+            }), 200
+    
+        return jsonify({
+            "message": f"Found {len(recipes)} recipes with cook time ≤ {max_cook_time} minutes",
+            "data": [recipe.to_dict() for recipe in recipes],
+            "max_cook_time": max_cook_time
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to query recipes",
+            "details": str(e)
+        }), 500
