@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, current_app
 from models.user import User
 from models.blacklist import BlackList
 from models.recipe import Recipe
+from models.comment import Comment
+from models.notification import Notification
 from utils.jwt_utils import token_required
 import bcrypt
 import jwt
@@ -9,6 +11,11 @@ import datetime
 import uuid
 
 users_bp = Blueprint("users", __name__)
+@users_bp.before_request
+@token_required
+def require_token():
+    # This ensures token_required runs before every request to this blueprint
+    pass
 
 #____________
 #Signup
@@ -77,7 +84,6 @@ def signin():
 #Signout
 #____________
 @users_bp.route("/signout", methods=["POST"])
-@token_required
 def signout():
     jti = getattr(request, "jti", None)
 
@@ -95,7 +101,6 @@ def signout():
 #__________
 
 @users_bp.route("/users/id/<user_id>", methods=["GET"])
-@token_required
 def get_user_by_id(user_id):
     user = User.objects(id=user_id).first()
     if not user:
@@ -122,7 +127,6 @@ def get_user_recipes(user_id):
 #Get top users
 #___________
 @users_bp.route("/top-users", methods=["GET"])
-@token_required
 def get_top_users():
     try:
         # Aggregate recipes grouped by user_id
@@ -159,7 +163,6 @@ def get_top_users():
 #___________
 
 @users_bp.route("/users/username/<string:username>", methods=["GET"])
-@token_required
 def get_user_by_username(username):
     try:
         print("Looking for username:", username)
@@ -180,12 +183,75 @@ def get_user_by_username(username):
             "error": "Failed to fetch user",
             "details": str(e)
         }), 500
+#__________
+#Toggle Favorite Recipe
+#__________
+
+@users_bp.route("/users/favorites/<recipe_id>", methods=["POST"])
+def toggle_favorite(recipe_id):
+    recipe = Recipe.objects(id=recipe_id).first()
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+
+    user = User.objects(id=request.user_id).first()
+
+    if recipe in user.favoriteRecipeIds:
+        user.favoriteRecipeIds.remove(recipe)
+        user.save()
+
+        Notification.objects(
+        user=recipe.user,
+        actor=user,
+        recipe=recipe,
+        type="favorite"
+    ).delete()
+
+        return jsonify({
+            "message": f"Recipe '{recipe.title}' removed from favorites",
+            "data": user.to_dict(),
+            "favorited": False
+        }), 200
+
+    else:
+        user.favoriteRecipeIds.append(recipe)
+        user.save()
+
+
+        if str(recipe.user.id) != str(user.id):
+            Notification(
+                user = recipe.user,
+                actor = user,
+                recipe = recipe,
+                type= "favorite",
+                message=f"{user.username} liked your recipe '{recipe.title}'"
+            ).save()
+
+        return jsonify({
+            "message":f"Recipe '{recipe.title}' added to favorites",
+            "data": user.to_dict(),
+            "favorited": True
+  
+        })
+#___________
+#Get users favorite recipes
+#___________
+@users_bp.route("/users/favorites", methods=["GET"])
+def get_user_favorites():
+    user = User.objects(id=request.user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    favorites = [recipe.to_dict() for recipe in user.favoriteRecipeIds]
+
+    return jsonify({
+        "message": f"Found {len(favorites)} favorite recipes",
+        "data": favorites
+    }),200
 #___________
 #Get all users (protected)
 #___________
 
 @users_bp.route("/users", methods=["GET"])
-@token_required
 def get_all_users():
     users = User.objects()
     return jsonify([user.to_dict() for user in users])

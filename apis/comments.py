@@ -18,7 +18,6 @@ def require_token():
 crud_factory(comments_bp, Comment, "comments",[ "body", "recipe"], user_owned = True, exclude_methods=["POST"] )
 
 @comments_bp.route("/comments", methods=["POST"])
-@token_required
 def create_comment():
     data = request.get_json() or {}
 
