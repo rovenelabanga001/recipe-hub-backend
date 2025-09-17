@@ -5,6 +5,12 @@ from models.comment import Comment
 from utils.crud_factory import crud_factory
 from utils.crud_utils import get_document_or_404, update_document_fields
 from utils.jwt_utils import token_required
+import random
+from datetime import datetime, timedelta
+
+
+_last_random_refresh = None
+_last_random_recipes = []
 
 recipes_bp = Blueprint("recipes", __name__)
 
@@ -32,6 +38,9 @@ crud_factory(
     user_owned=True
 )
 
+#___________
+#Get quick recipes
+#___________
 @recipes_bp.route("/recipes/quick-meals/<int:max_cook_time>", methods=["GET"])
 def get_quick_recipes(max_cook_time):
     if max_cook_time <= 0:
@@ -59,9 +68,10 @@ def get_quick_recipes(max_cook_time):
             "details": str(e)
         }), 500
 
-
+#___________
+#Get recipe's comments
+#___________
 @recipes_bp.route("/recipes/<recipe_id>/comments", methods=["GET"])
-@token_required
 def get_recipe_comments(recipe_id):
     recipe = Recipe.objects(id=recipe_id).first()
     if not recipe:
@@ -74,3 +84,30 @@ def get_recipe_comments(recipe_id):
         "user": str(comment.user.id) if comment.user else None,
         "time": comment.time.isoformat()
     }for comment in comments]), 200
+
+
+#___________
+#Get popular recipes
+#___________
+@recipes_bp.route("/recipes/popular", methods = ["GET"])
+def get_popular_recipes():
+    global _last_random_refresh, _last_random_recipes
+
+    recipes = Recipe.objects.order_by("-favoriteCount").limit(-4)
+
+    if recipes and recipes[0].favoriteCount > 0:
+        return jsonify({
+            "message": "Top 4 popular recipes",
+            "data": [recipe.to_dict() for recipe in recipes]
+        }),200
+
+    now = datetime.utcnow()
+    if not _last_random_recipes or now - _last_random_refresh > timedelta(hours=4):
+        all_recipes = list(Recipe.objects)
+        _last_random_recipes = random.sample(all_recipes, min(4, len(all_recipes)))
+        _last_random_refresh = now
+
+    return jsonify({
+        "message": "Random 4 recipes(fallback)",
+        "data": [r.to_dict() for r in _last_random_recipes]
+    }),200

@@ -9,6 +9,7 @@ class Recipe(Document):
     prepTime = IntField(required = True)
     cookTime = IntField(required = True)
     servings = IntField(required = True)
+    favoriteCount = IntField(default=0)
 
     ingredients = ListField(StringField(), required = True)
     directions = ListField(StringField(), required = True)
@@ -31,4 +32,5 @@ class Recipe(Document):
             "tags": self.tags,
             "category": self.category,
             "userID": str(self.user.id) if self.user else None,
+            "favoriteCount": self.favoriteCount
         }

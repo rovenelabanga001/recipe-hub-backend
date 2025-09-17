@@ -12,10 +12,12 @@ import uuid
 
 users_bp = Blueprint("users", __name__)
 @users_bp.before_request
-@token_required
 def require_token():
-    # This ensures token_required runs before every request to this blueprint
-    pass
+    open_routes = {"/signup", "/signin"}
+    if request.path in open_routes:
+        return  
+
+    return token_required(lambda: None)()
 
 #____________
 #Signup
@@ -199,6 +201,9 @@ def toggle_favorite(recipe_id):
         user.favoriteRecipeIds.remove(recipe)
         user.save()
 
+        recipe.favoriteCount = max(0, recipe.favoriteCount - 1)
+        recipe.save()
+
         Notification.objects(
         user=recipe.user,
         actor=user,
@@ -216,6 +221,8 @@ def toggle_favorite(recipe_id):
         user.favoriteRecipeIds.append(recipe)
         user.save()
 
+        recipe.favoriteCount += 1
+        recipe.save()
 
         if str(recipe.user.id) != str(user.id):
             Notification(
