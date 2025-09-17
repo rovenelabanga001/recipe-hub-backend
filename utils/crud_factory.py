@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
 from utils.crud_utils import get_document_or_404, update_document_fields
+from mongoengine import ReferenceField, ValidationError
 
-def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user_owned=False):
+def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user_owned=False, allow_cross_user_create=False):
     """
     CRUD Factory with JWT support and user ownership
 
@@ -11,6 +12,7 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
         endpoint: API endpoint
         required_fields: list of required fields for creation
         user_owned: requires user ownership check for write operations
+        allow_cross_user_create: if True, users can create documents referencing other users' content
     """
     
     # Helper function to check ownership for write operations
@@ -34,6 +36,20 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
             "error": f"You do not have permission to {action} this {endpoint[:-1].capitalize()}"
         }), 403
 
+    # --- helper: resolve ReferenceField IDs to documents ---
+    def resolve_references(data: dict):
+        """
+        Convert string IDs into actual documents for ReferenceFields.
+        """
+        for field_name, field in model._fields.items():
+            if isinstance(field, ReferenceField) and field_name in data:
+                field_model = field.document_type
+                try:
+                    data[field_name] = field_model.objects.get(id=data[field_name])
+                except field_model.DoesNotExist:
+                    raise ValidationError(f"{field_model.__name__} not found for field '{field_name}'")
+        return data
+
     # GET all 
     @bp.route(f"/{endpoint}", methods=["GET"])
     def get_all():
@@ -54,7 +70,7 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
         
         return jsonify({
             "message": f"Found {len(result)} {endpoint}",
-            f"{endpoint}": result
+            "data": result
         }), 200
 
     # GET one 
@@ -79,7 +95,6 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
             
         if hasattr(model, 'user'):  
             docs = model.objects(user=request.user_id)
-
         else:  
             docs = model.objects(user_id=request.user_id)
         
@@ -95,21 +110,22 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
             "data": result
         }), 200
 
-    # CREATE - Only authenticated users can create
+    # --- CREATE ---
     @bp.route(f"/{endpoint}", methods=["POST"])
     def create():
         if not hasattr(request, 'user_id'):
             return jsonify({"error": "Authentication required to create"}), 401
-            
+
         data = request.get_json() or {}
 
+        # Ownership handling
         if user_owned:
-
-            if hasattr(model, 'user'):  
+            if hasattr(model, 'user'):
                 data['user'] = request.user_id
-            else:  
+            else:
                 data['user_id'] = request.user_id
 
+        # Check required fields
         if required_fields:
             missing_fields = [field for field in required_fields if not data.get(field)]
             if missing_fields:
@@ -119,31 +135,39 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
                 }), 400
 
         try:
-            doc = model(**data).save()
+            data = resolve_references(data)  
+            doc = model(**data)
+            doc.save()
             return jsonify(doc.to_dict()), 201
         except Exception as e:
             return jsonify({"error": str(e)}), 400
 
-    # PATCH - Only owners can update
+    # --- PATCH ---
     @bp.route(f"/{endpoint}/<doc_id>", methods=["PATCH"])
     def update(doc_id):
         doc, err, code = get_document_or_404(model, doc_id, f"{endpoint[:-1].capitalize()} not found")
-        if err: 
+        if err:
             return jsonify(err), code
 
-        if not check_ownership(doc):
-            return permission_error("update")
+        # Ownership check
+        if user_owned and hasattr(request, 'user_id'):
+            if hasattr(doc, 'user') and str(doc.user.id) != request.user_id:
+                return jsonify({"error": "You do not have permission to update this"}), 403
 
         data = request.get_json() or {}
 
-        # Prevent changing ownership
-        ownership_fields = ['user', 'user_id']
-        for field in ownership_fields:
+        # Prevent ownership reassignment
+        for field in ['user', 'user_id']:
             if field in data:
                 return jsonify({"error": "Cannot change document ownership"}), 400
 
-        update_doc = update_document_fields(doc, data)
-        return jsonify(update_doc.to_dict()), 200
+        try:
+            data = resolve_references(data) 
+            update_doc = update_document_fields(doc, data)
+            return jsonify(update_doc.to_dict()), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+
 
     # DELETE - Only owners can delete
     @bp.route(f"/{endpoint}/<doc_id>", methods=["DELETE"])
@@ -155,7 +179,7 @@ def crud_factory(bp: Blueprint, model, endpoint: str, required_fields=None, user
         if not check_ownership(doc):
             return permission_error("delete")
         
-        doc_name = getattr(doc, "name", str(doc.id))
+        doc_name = getattr(doc, "name", getattr(doc, "body", str(doc.id)))
         doc.delete()
 
         return jsonify({

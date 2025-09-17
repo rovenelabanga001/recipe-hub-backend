@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from models.recipe import Recipe
 from models.user import User
+from models.comment import Comment
 from utils.crud_factory import crud_factory
 from utils.crud_utils import get_document_or_404, update_document_fields
 from utils.jwt_utils import token_required
@@ -57,3 +58,19 @@ def get_quick_recipes(max_cook_time):
             "error": "Failed to query recipes",
             "details": str(e)
         }), 500
+
+
+@recipes_bp.route("/recipes/<recipe_id>/comments", methods=["GET"])
+@token_required
+def get_recipe_comments(recipe_id):
+    recipe = Recipe.objects(id=recipe_id).first()
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+
+    comments = Comment.objects(recipe=recipe)
+    return jsonify([{
+        "id": str(comment.id),
+        "body": comment.body,
+        "user": str(comment.user.id) if comment.user else None,
+        "time": comment.time.isoformat()
+    }for comment in comments]), 200
