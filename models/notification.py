@@ -21,7 +21,7 @@ class Notification(Document):
 
     def to_dict(self):
         return {
-            "id" : self.id,
+            "id" : str(self.id),
             "userId": str(self.user.id) if self.user else None,
             "type": self.type,
             "user": self.actor.username if self.actor else None,
