@@ -1,15 +1,18 @@
+import datetime
 from mongoengine import (
-    Document, StringField, IntField, ListField, ReferenceField, ImageField
+    Document, StringField, IntField, ListField, ReferenceField, FileField, DateTimeField
 )
+
+from flask import url_for
 
 class Recipe(Document):
     name = StringField(required = True)
-    image = ImageField(size = (800, 600, True), thumbnail_size=(150, 150, True))
+    image = FileField(required = True)
     title = StringField(required = True)
     prepTime = IntField(required = True)
     cookTime = IntField(required = True)
     servings = IntField(required = True)
-    favoriteCount = IntField(default=0)
+    createdAt = DateTimeField(default=datetime.datetime.utcnow)
 
     ingredients = ListField(StringField(), required = True)
     directions = ListField(StringField(), required = True)
@@ -18,11 +21,18 @@ class Recipe(Document):
 
     user = ReferenceField("User", required=True)
 
+    likedBy = ListField(ReferenceField("User"))
+
     def to_dict(self):
+        image_url = None
+        if self.image and self.image.grid_id:
+            image_url = url_for("images.serve_image", image_id=str(self.image.grid_id), _external=True)
+
+
         return{
             "id": str(self.id),
             "name": self.name,
-            "image": str(self.image.grid_id) if self.image else None,
+            "image": image_url,
             "title": self.title,
             "prepTime": self.prepTime,
             "cookTime": self.cookTime,
@@ -32,5 +42,8 @@ class Recipe(Document):
             "tags": self.tags,
             "category": self.category,
             "userID": str(self.user.id) if self.user else None,
-            "favoriteCount": self.favoriteCount
+            "likesCount": len(self.likedBy),
+            "createdAt":self.createdAt,
+            "likedBy": [str(u.id) for u in self.likedBy] if self.likedBy else []
         }
+    

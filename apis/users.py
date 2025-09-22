@@ -75,6 +75,8 @@ def signin():
 
     token = jwt.encode({
         "user_id": str(user.id),
+        "email": user.email,     
+        "username": user.username, 
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2),
         "iat": datetime.datetime.utcnow(),
         "jti": jti
@@ -119,11 +121,11 @@ def get_user_recipes(user_id):
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    recipes = Recipe.objects(user_id=user.id)
+    recipes = Recipe.objects(user=user)
     if not recipes:
         return jsonify({"message": "This user has no recipes yet"}), 200
 
-    return jsonify([recipe.to_dict for recipe in recipes])
+    return jsonify([recipe.to_dict() for recipe in recipes])
 
 #___________
 #Get top users
@@ -172,7 +174,7 @@ def get_user_by_username(username):
         user = User.objects(username=username).first()
         if not user:
             return jsonify({
-                "message": f"User with username not found"
+                "message": f"User with username '{username}' not found"
             }), 404
 
         return jsonify({
@@ -185,60 +187,25 @@ def get_user_by_username(username):
             "error": "Failed to fetch user",
             "details": str(e)
         }), 500
+
 #__________
 #Toggle Favorite Recipe
 #__________
 
 @users_bp.route("/users/favorites/<recipe_id>", methods=["POST"])
-def toggle_favorite(recipe_id):
+def toggle_favoites(recipe_id):
     recipe = Recipe.objects(id=recipe_id).first()
     if not recipe:
         return jsonify({"error": "Recipe not found"}), 404
 
     user = User.objects(id=request.user_id).first()
+    if not user:
+        return jsonify({"error": "User not founf"}), 404
+    
+    if user in recipe.likedBy:
+        recipe.likedBy.remove(user)
+        recipe.favoriteCount = max(0, recipe.favoriteCount -1)
 
-    if recipe in user.favoriteRecipeIds:
-        user.favoriteRecipeIds.remove(recipe)
-        user.save()
-
-        recipe.favoriteCount = max(0, recipe.favoriteCount - 1)
-        recipe.save()
-
-        Notification.objects(
-        user=recipe.user,
-        actor=user,
-        recipe=recipe,
-        type="favorite"
-    ).delete()
-
-        return jsonify({
-            "message": f"Recipe '{recipe.title}' removed from favorites",
-            "data": user.to_dict(),
-            "favorited": False
-        }), 200
-
-    else:
-        user.favoriteRecipeIds.append(recipe)
-        user.save()
-
-        recipe.favoriteCount += 1
-        recipe.save()
-
-        if str(recipe.user.id) != str(user.id):
-            Notification(
-                user = recipe.user,
-                actor = user,
-                recipe = recipe,
-                type= "favorite",
-                message=f"{user.username} liked your recipe '{recipe.title}'"
-            ).save()
-
-        return jsonify({
-            "message":f"Recipe '{recipe.title}' added to favorites",
-            "data": user.to_dict(),
-            "favorited": True
-  
-        })
 #___________
 #Get users favorite recipes
 #___________

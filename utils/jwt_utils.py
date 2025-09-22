@@ -6,6 +6,8 @@ from models.blacklist import BlackList
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return "", 200
         token = None
         auth_header = request.headers.get("Authorization")
 
