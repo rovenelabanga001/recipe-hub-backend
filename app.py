@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from pymongo import MongoClient
 from mongoengine import connect
 from dotenv import load_dotenv
 from apis.users import users_bp
@@ -34,10 +35,10 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(images_bp)
 
 
-connect(
-    db="recipehub",
-    host="mongodb://localhost:27017/recipehub"
-)
+MONGODB_URI = os.getenv("MONGODB_URI")
+
+# Connect MongoEngine
+connect(host=MONGODB_URI)
 
 
 @app.route("/")

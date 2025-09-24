@@ -10,5 +10,6 @@ flask-bcrypt = "*"
 flask-cors = "*"
 faker = "*"
 pillow = "*"
+requests = "*"
 
 [dev-packages]
