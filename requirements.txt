@@ -1,16 +1,13 @@
-[packages]
-flask = "*"
-flask-restful = "*"
-flask-jwt-extended = "*"
-python-dotenv = "*"
-pymongo = "*"
-dnspython = "*"   # Needed if using MongoDB Atlas
-mongoengine = "*"
-flask-bcrypt = "*"
-flask-cors = "*"
-faker = "*"
-pillow = "*"
-requests = "*"
-gunicorn = "*"
-
-[dev-packages]
+Flask==3.1.2
+Flask-RESTful==0.3.10
+Flask-JWT-Extended==4.7.1
+Flask-Bcrypt==1.0.1
+Flask-CORS==6.0.1
+pymongo==4.15.0
+mongoengine==0.29.1
+python-dotenv==1.1.1
+dnspython==2.8.0
+requests==2.32.5
+Faker==37.8.0
+Pillow==11.3.0
+gunicorn==23.0.0
