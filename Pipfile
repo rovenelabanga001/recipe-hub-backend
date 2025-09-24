@@ -11,5 +11,6 @@ flask-cors = "*"
 faker = "*"
 pillow = "*"
 requests = "*"
+gunicorn = "*"
 
 [dev-packages]

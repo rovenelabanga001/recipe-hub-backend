@@ -1,0 +1,16 @@
+[packages]
+flask = "*"
+flask-restful = "*"
+flask-jwt-extended = "*"
+python-dotenv = "*"
+pymongo = "*"
+dnspython = "*"   # Needed if using MongoDB Atlas
+mongoengine = "*"
+flask-bcrypt = "*"
+flask-cors = "*"
+faker = "*"
+pillow = "*"
+requests = "*"
+gunicorn = "*"
+
+[dev-packages]
