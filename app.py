@@ -23,15 +23,6 @@ CORS(
 )
 
 
-@app.after_request
-def apply_cors(response):
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-    response.headers["Vary"] = "Origin"  # allow multiple origins dynamically
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    return response
-
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 

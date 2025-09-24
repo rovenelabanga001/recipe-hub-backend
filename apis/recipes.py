@@ -99,24 +99,29 @@ def get_popular_recipes():
     all_recipes = list(Recipe.objects)
     sorted_recipes = sorted(all_recipes, key=lambda r: len(r.likedBy), reverse=True)
 
-    # Pick top 4 with likes > 0
-    top_recipes = [r for r in sorted_recipes if len(r.likedBy) > 0][:4]
+    # Get all recipes with likes
+    liked_recipes = [r for r in sorted_recipes if len(r.likedBy) > 0]
 
-    if top_recipes:
-        return jsonify({
-            "message": "Top 4 popular recipes",
-            "data": [recipe.to_dict() for recipe in top_recipes]
-        }), 200
-
-    # Fallback: random recipes (refresh every 4 hours)
-    now = datetime.utcnow()
-    if not _last_random_recipes or not _last_random_refresh or (now - _last_random_refresh > timedelta(hours=4)):
-        _last_random_recipes = random.sample(all_recipes, min(4, len(all_recipes)))
-        _last_random_refresh = now
+    if len(liked_recipes) >= 4:
+        # Take top 4
+        top_recipes = liked_recipes[:4]
+    elif 0 < len(liked_recipes) < 4:
+        # Take all liked, then fill the remainder with random recipes (excluding already chosen ones)
+        remaining_needed = 4 - len(liked_recipes)
+        remaining_pool = [r for r in all_recipes if r not in liked_recipes]
+        random_recipes = random.sample(remaining_pool, min(remaining_needed, len(remaining_pool)))
+        top_recipes = liked_recipes + random_recipes
+    else:
+        # No liked recipes → fallback to random (refresh every 4 hours)
+        now = datetime.utcnow()
+        if not _last_random_recipes or not _last_random_refresh or (now - _last_random_refresh > timedelta(hours=4)):
+            _last_random_recipes = random.sample(all_recipes, min(4, len(all_recipes)))
+            _last_random_refresh = now
+        top_recipes = _last_random_recipes
 
     return jsonify({
-        "message": "Random 4 recipes (fallback)",
-        "data": [r.to_dict() for r in _last_random_recipes]
+        "message": "Top 4 popular recipes",
+        "data": [r.to_dict() for r in top_recipes]
     }), 200
 
 #___________
@@ -310,3 +315,56 @@ def toggle_like(recipe_id):
             "likeCount": len(recipe.likedBy),
             "liked": True
         }), 200
+    
+#___________
+#Get recipe like count
+#___________
+
+@recipes_bp.route("/recipes/<recipe_id>/likes", methods=["GET"])
+def get_like_count(recipe_id):
+    recipe = Recipe.objects(id=recipe_id).first()
+
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+    
+    return jsonify({
+        "recipeId": str(recipe.id),
+        "likeCount": len(recipe.likedBy)
+    }), 200
+
+#___________
+#Toggle favorite
+#___________
+
+@recipes_bp.route("/recipes/<recipe_id>/favorite", methods=["POST"])
+def toggle_favorite(recipe_id):
+    recipe = Recipe.objects(id=recipe_id).first()
+
+    if not recipe:
+        return jsonify({"error": "Recipe not founf"}), 404
+    
+    user = User.objects(id=request.user_id).first()
+    
+    if not user:
+        return jsonify({"error":"User not found"}), 404
+    
+    if recipe in user.favoriteRecipeIds:
+        user.favoriteRecipeIds.remove(recipe)
+        user.save()
+
+        return jsonify({
+            "Message": f"Recipe '{recipe.title}' removed from favorites",
+            "favorites": [str(r.id) for r in user.favoriteRecipeIds],
+            "favorited": False
+        }), 200
+    else:
+        user.favoriteRecipeIds.append(recipe)
+        user.save()
+
+        return jsonify({
+            "message": f"Recipe '{recipe.title}' added to favorites",
+            "favorites": [str(r.id) for r in user.favoriteRecipeIds],
+            "favorited": True
+        }), 200
+    
+    

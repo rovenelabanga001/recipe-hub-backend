@@ -5,10 +5,16 @@ from models.recipe import Recipe
 from models.comment import Comment
 from models.notification import Notification
 from utils.jwt_utils import token_required
+from mongoengine import get_db
+from gridfs import GridFS
+from bson import ObjectId
 import bcrypt
 import jwt
 import datetime
 import uuid
+import os
+
+DEFAULT_PROFILE_PICTURE_ID = os.getenv("DEFAULT_PROFILE_PIC_ID") 
 
 users_bp = Blueprint("users", __name__)
 @users_bp.before_request
@@ -100,6 +106,24 @@ def signout():
 
     return jsonify({"message": "Successfully signed out"}), 200
 
+#____________
+#Get Current User
+#____________
+@users_bp.route("/users/me", methods=["GET"])
+def get_current_user():
+    user = User.objects(id=request.user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({
+        "id": str(user.id),
+        "username": user.username,
+        "email": user.email,
+        "favoriteRecipeIds": [str(rid.id) for rid in user.favoriteRecipeIds]  # ensure you map ReferenceField objects
+    }), 200
+
+
+    
 #__________
 #Get a user by ID
 #__________
@@ -188,23 +212,6 @@ def get_user_by_username(username):
             "details": str(e)
         }), 500
 
-#__________
-#Toggle Favorite Recipe
-#__________
-
-@users_bp.route("/users/favorites/<recipe_id>", methods=["POST"])
-def toggle_favoites(recipe_id):
-    recipe = Recipe.objects(id=recipe_id).first()
-    if not recipe:
-        return jsonify({"error": "Recipe not found"}), 404
-
-    user = User.objects(id=request.user_id).first()
-    if not user:
-        return jsonify({"error": "User not founf"}), 404
-    
-    if user in recipe.likedBy:
-        recipe.likedBy.remove(user)
-        recipe.favoriteCount = max(0, recipe.favoriteCount -1)
 
 #___________
 #Get users favorite recipes
@@ -221,12 +228,104 @@ def get_user_favorites():
         "message": f"Found {len(favorites)} favorite recipes",
         "data": favorites
     }),200
+
+#___________
+#Get user's favorite recipe IDs
+#___________
+
+@users_bp.route("/users/me/favorites", methods=["GET"])
+def get_my_favorites():
+    user = User.objects(id=request.user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # favoriteRecipeIds is a list of Recipe references; return string ids
+    fav_ids = [str(r.id) for r in (user.favoriteRecipeIds or [])]
+    return jsonify({"favoriteRecipeIds": fav_ids}), 200
+
+#___________
+#Upload profile picture
+#___________
+@users_bp.route("/users/profile_picture", methods=["POST"])
+def upload_profile_picture():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file part in request"}), 400
+        
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+        
+
+        file.seek(0, 2)
+        size = file.tell()
+        file.seek(0)
+        if size > 2 * 1024 * 1024:
+            return jsonify({"error": "File too large. Max size is 2MB"}), 400
+        
+        db = get_db()
+        fs = GridFS(db)
+
+        user = User.objects(id=request.user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        if user.profile_picture_id and user.profile_picture_id != DEFAULT_PROFILE_PICTURE_ID:
+            try:
+                fs.delete(ObjectId(user.profile_picture_id))
+            except Exception as e:
+                print(f"[WARN] failed to delete old profile picture: {e}")
+
+        file_id = fs.put(file, filename=file.filename, content_type = file.content_type)
+
+        user.profile_picture_id = str(file_id)
+        user.save()
+
+        return jsonify({
+            "message": "Profile picture updated successfully",
+            "data": user.to_dict()
+        })
+    
+    except Exception as e:
+        print(f"[ERROR] Upload failed: {e}")
+        return jsonify({"error": "Upload failed", "details": str(e)}), 500
+
+#___________
+#Reset profile picture
+#___________
+
+@users_bp.route("/users/profile_picture/reset", methods=["POST"])
+def reset_profile_picture():
+    try:
+        db = get_db()
+        fs = GridFS(db)
+
+        user = User.objects(id=request.user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        if user.profile_picture_id and user.profile_picture_id != DEFAULT_PROFILE_PICTURE_ID:
+            try:
+                fs.delete(ObjectId(user.profile_picture_id))
+            except Exception as e:
+                print(f"[WARN] Failed to delete old profile picture: {e}")
+
+        user.profile_picture_id = DEFAULT_PROFILE_PICTURE_ID
+        user.save()
+
+        return jsonify({
+            "message": "Profile picture set to default",
+            "data": user.to_dict()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "Reset failed", "details": str(e)}), 500
+
 #___________
 #Get all users (protected)
 #___________
 
-@users_bp.route("/users", methods=["GET"])
-def get_all_users():
-    users = User.objects()
-    return jsonify([user.to_dict() for user in users])
+# @users_bp.route("/users", methods=["GET"])
+# def get_all_users():
+#     users = User.objects()
+#     return jsonify([user.to_dict() for user in users])
  

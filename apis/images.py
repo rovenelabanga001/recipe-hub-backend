@@ -21,3 +21,4 @@ def serve_image(image_id):
     except Exception as e:
         print(f"[ERROR] Failed to fetch {image_id} : {e}")
         return jsonify({"error": "Image not found", "details": str(e)}), 404
+    
