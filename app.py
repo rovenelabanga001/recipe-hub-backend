@@ -41,7 +41,8 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 connect(
     host=MONGODB_URI,
     alias="default",
-    tls=True  # ensures SSL/TLS handshake works
+    tls=True,
+    tlsAllowInvalidCertificates=True  # add this
 )
 
 
