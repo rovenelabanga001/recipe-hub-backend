@@ -9,6 +9,7 @@ from apis.comments import comments_bp
 from apis.notifications import notifications_bp
 from apis.images import images_bp
 import os
+import certifi
 
 load_dotenv()
 
@@ -42,7 +43,7 @@ connect(
     host=MONGODB_URI,
     alias="default",
     tls=True,
-    tlsAllowInvalidCertificates=True  # add this
+    tlsCAFile=certifi.where()
 )
 
 
