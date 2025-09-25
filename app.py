@@ -21,7 +21,7 @@ CORS(
     origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://[::]:3000"   # IPv6 localhost
+        "https://recipe-hk70d5z9s-rovenel-abangas-projects.vercel.app"   # deployed frontend URL
     ],
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
