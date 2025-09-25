@@ -38,7 +38,11 @@ app.register_blueprint(images_bp)
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 # Connect MongoEngine
-connect(host=MONGODB_URI)
+connect(
+    host=MONGODB_URI,
+    alias="default",
+    tls=True  # ensures SSL/TLS handshake works
+)
 
 
 @app.route("/")
