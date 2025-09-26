@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from pymongo import MongoClient
-from mongoengine import connect
+from mongoengine import connect, connection
 from dotenv import load_dotenv
 from apis.users import users_bp
 from apis.recipes import recipes_bp
@@ -55,5 +55,16 @@ connect(
 def home():
     return {"message": "Recipehub backend is running"}
 
+@app.route("/health", methods = ["GET"])
+def health():
+    try:
+        connection.get_connection(alias="default").admin.command("ping")
+        return{"status": "ok", "database": "connected"}, 200
+    except Exception as e:
+        return {
+            "status": "error",
+            "database": "unreachable",
+            "details": str(e)
+        }, 500
 if __name__ == "__main__":
     app.run(debug=True, port=5500)
