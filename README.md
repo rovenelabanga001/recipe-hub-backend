@@ -1,7 +1,8 @@
 
 # Recipe Hub Backend
 
-The Recipe Hub Backend is a robust RESTful API that powers the Recipe Hub platform. It provides secure authentication and a wide range of features enabling users to share, discover, and engage with recipes in a social environment..
+The Recipe Hub Backend is a robust RESTful API that powers the 
+[Recipe Hub platform](https://github.com/rovenelabanga001/recipe-hub) .It provides secure authentication and a wide range of features enabling users to share, discover, and engage with recipes in a social environment..
 ## Features
 
 - **Authentication & Security**
